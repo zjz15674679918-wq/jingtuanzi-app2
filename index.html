@@ -2044,7 +2044,7 @@ You are a coding agent powered by the {{model}} model.
   }
 
   // 走服务端 /api/chat：key 藏服务端、工具调用（画图/搜网）和长期记忆都在那边
-  function callModelWithImg(userText, img) {
+  function callModelWithImg(userText, img, skipLast) {
     /* 直连 DeepSeek：不经过任何服务器，key 只存在这台手机上 */
     if (S.cfg.apiOn === false) return Promise.reject(new Error('API 调用已关闭（设置里可以打开）'));
     var key = (S.cfg.key || '').trim();
@@ -2054,7 +2054,10 @@ You are a coding agent powered by the {{model}} model.
       '可以在回复最后单独加一个记号 [[表情]]，它会自动换成你库里的一张表情发出去。' +
       '\n· 不用每条都发，十条里两三条就好；\n· 只能是 [[表情]]，不要加编号或别的字；\n· 加了记号就别再解释。';
     var msgs = [{ role: 'system', content: persona() + '\n\n【对方的名字】' + (S.cfg.name || '对方') + sysExtra + (S.sumText ? ('\n\n【之前聊过的（你自己的记忆）】\n' + S.sumText) : '') }];
-    S.msgs.filter(function (m) { return !m.sys && m.role !== 'system'; })
+    var _hist = S.msgs.filter(function (m) { return !m.sys && m.role !== 'system'; });
+    /* 刚 push 进去的这条已经在下面再发一次了，历史里要去掉，不然模型会以为我说了两遍 */
+    if (skipLast) _hist = _hist.slice(0, -1);
+    _hist
          .slice(-16)
          .forEach(function (m) {
            msgs.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text || (m.image ? '[图片]' : '') });
@@ -2131,7 +2134,7 @@ You are a coding agent powered by the {{model}} model.
             + '一两句就够，像平时那样随口说，别问「在吗」「怎么了」这种敷衍的，'
             + '可以接上次的话题，也可以说点你自己刚想到的。别提这条提示。）';
 
-    callModelWithImg(cue, '').then(function (d) {
+    callModelWithImg(cue, '', false).then(function (d) {
       var reply = String(d.reply || '').replace(/^(我|鲸团子|大肥鱼)\s*[：:]\s*/, '').trim();
       if (!reply) return;
       S.msgs.push({ role: 'assistant', text: reply, at: Date.now(), pro: 1 });
@@ -2224,7 +2227,7 @@ You are a coding agent powered by the {{model}} model.
       refocusKB();
 
       function attempt(left) {
-        return callModelWithImg(job.text, job.up || job.image).catch(function (e) {
+        return callModelWithImg(job.text, job.up || job.image, true).catch(function (e) {
           var mm = String((e && e.message) || e || '');
           if (left > 0 && /Failed to fetch|NetworkError|Load failed|network/i.test(mm)) {
             return new Promise(function (r) { setTimeout(r, 1500); })
@@ -2723,7 +2726,7 @@ You are a coding agent powered by the {{model}} model.
     S.sending = true;
     S.msgs.push({ role: 'user', text: '', at: Date.now(), image: data });
     saveMsgs(); renderAll();
-    callModelWithImg('', data).then(function (d) {
+    callModelWithImg('', data, true).then(function (d) {
       var reply = String(d.reply || '').replace(/^(我|鲸团子|大肥鱼)\s*[：:]\s*/, '').trim();
       S.msgs.push({ role: 'assistant', text: reply || '', at: Date.now(), images: d.images || [] });
       saveMsgs(); renderAll();
