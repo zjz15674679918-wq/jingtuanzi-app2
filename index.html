@@ -1922,16 +1922,7 @@ You are a coding agent powered by the {{model}} model.
         btn.onclick = function () { speak(m.text, btn); };
         el.querySelector('.b').appendChild(btn);
 
-        // 她发的图/表情 → 一键收进「我的表情」
-        (m.images || []).forEach(function (it) {
-          var u = (typeof it === 'string') ? it : it.url;
-          if (!u || !/^data:image\//.test(u)) return;
-          var sv = document.createElement('button');
-          sv.className = 'play';
-          sv.textContent = '⭐ 收到我的表情';
-          sv.onclick = function () { saveToMine(u, '从她那收的'); };
-          el.querySelector('.b').appendChild(sv);
-        });
+        /* 已移除「收到我的表情」按钮：她的图不再能被收进你的表情库（避免两个库串） */
       }
     });
     bindAllImages();
