@@ -2057,45 +2057,25 @@ You are a coding agent powered by the {{model}} model.
 
     var said = String(userText || '').trim();
 
-    /* 有图 + 有方舟 key → 走方舟视觉模型，让她真的看得见 */
-    var ark = String(S.cfg.arkKey || '').trim();
-    if (img && ark) {
-      var vmsgs = msgs.slice();
-      vmsgs.push({
+    /* DeepSeek 的 deepseek-flash 本身就吃图片：content 用 block 数组 */
+    if (img) {
+      msgs.push({
         role: 'user',
         content: [
           { type: 'image_url', image_url: { url: img } },
           { type: 'text', text: said || '看看这张图，跟我说说。' }
         ]
       });
-      return fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + ark },
-        body: JSON.stringify({
-          model: S.cfg.arkVisionModel || 'doubao-1-5-vision-pro-32k-250115',
-          messages: vmsgs, temperature: 1.1, max_tokens: 2000
-        })
-      }).then(function (r) {
-        return r.text().then(function (t) { return { ok: r.ok, status: r.status, t: t }; });
-      }).then(function (res) {
-        if (!res.ok) {
-          /* 方舟视觉模型没开通/没权限时，别甩原始报错，让她自然说一句 */
-          return { ok: true, reply: '图好像没传过来…我这边啥也看不到，你直接跟我说拍的是啥吧。', images: [] };
-        }
-        var j = JSON.parse(res.t);
-        var c = (j.choices && j.choices[0] && j.choices[0].message) || {};
-        return { ok: true, reply: String(c.content || '').trim(), images: [] };
-      });
+    } else {
+      msgs.push({ role: 'user', content: said || '（没说话）' });
     }
-
-    if (img) said = (said ? said + '\n' : '') + '（我发了张图片；要她看图，得在设置里填火山方舟 key）';
     msgs.push({ role: 'user', content: said || '（没说话）' });
 
     return fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
       body: JSON.stringify({
-        model: (S.cfg.model || 'deepseek-chat'),
+        model: (S.cfg.model || 'deepseek-flash'),
         messages: msgs,
         temperature: 1.1,
         max_tokens: 4000,
