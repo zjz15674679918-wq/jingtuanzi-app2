@@ -2051,9 +2051,9 @@ You are a coding agent powered by the {{model}} model.
     var sysExtra = '\n\n【发表情的规矩】你有自己的表情包。合适的时候（接梗、撒娇、无语、笑着附和）' +
       '可以在回复最后单独加一个记号 [[表情]]，它会自动换成你库里的一张表情发出去。' +
       '\n· 不用每条都发，十条里两三条就好；\n· 只能是 [[表情]]，不要加编号或别的字；\n· 加了记号就别再解释。';
-    var msgs = [{ role: 'system', content: persona() + '\n\n【对方的名字】' + (S.cfg.name || '对方') + sysExtra }];
+    var msgs = [{ role: 'system', content: persona() + '\n\n【对方的名字】' + (S.cfg.name || '对方') + sysExtra + (S.sumText ? ('\n\n【之前聊过的（你自己的记忆）】\n' + S.sumText) : '') }];
     S.msgs.filter(function (m) { return !m.sys && m.role !== 'system'; })
-         .slice(-30)
+         .slice(-16)
          .forEach(function (m) {
            msgs.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text || (m.image ? '[图片]' : '') });
          });
@@ -2247,7 +2247,7 @@ You are a coding agent powered by the {{model}} model.
         }
         S.msgs.push({ role: 'assistant', text: '（' + m + '）', at: Date.now() });
         saveMsgs(); renderAll();
-      }).finally(step);
+      }).finally(function () { try { maybeCompress(); } catch (e) {} step(); });
     }
     Promise.all(jobs.map(function (j) {
       return j.image ? shrunkForUpload(j.image) : Promise.resolve('');
@@ -3155,6 +3155,61 @@ You are a coding agent powered by the {{model}} model.
     if (!pool.length) return [];
     var pick = pool[Math.floor(Math.random() * pool.length)];
     return [{ url: pick.data, kind: 'sticker' }];
+  }
+
+  /* ══ 滚动摘要：聊久了把早期对话压成一段，防止上下文无限长 ══ */
+  var SUM_N = 24;
+  var SUM_CHUNK = 12;
+
+  function sumLoad() {
+    try {
+      S.sumText = localStorage.getItem('jt_ctx_sum') || '';
+      S.sumUpto = Number(localStorage.getItem('jt_ctx_at') || 0) || 0;
+    } catch (e) { S.sumText = ''; S.sumUpto = 0; }
+  }
+  function sumSave() {
+    try {
+      localStorage.setItem('jt_ctx_sum', S.sumText || '');
+      localStorage.setItem('jt_ctx_at', String(S.sumUpto || 0));
+    } catch (e) {}
+  }
+  function liveMsgs() {
+    return S.msgs.filter(function (m) { return !m.sys && m.role !== 'system'; });
+  }
+
+  function maybeCompress() {
+    if (S.cfg.apiOn === false) return;
+    var key = String(S.cfg.key || '').trim();
+    if (!key) return;
+    var live = liveMsgs();
+    if (live.length - S.sumUpto <= SUM_N) return;
+    var chunk = live.slice(S.sumUpto, S.sumUpto + SUM_CHUNK);
+    if (!chunk.length) return;
+    var lines = chunk.map(function (m) {
+      return (m.role === 'user' ? (S.cfg.name || '他') : '我') + '：' + (m.text || (m.image ? '[发了图]' : ''));
+    }).join('\n');
+
+    fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
+      body: JSON.stringify({
+        model: 'deepseek-flash',
+        messages: [
+          { role: 'system', content: '你是记忆整理员。把对话压缩成一段备忘，供以后的你回忆用。要求：保留人名、事件、约定、情绪、喜好、做过的事；不要编造、不要评价；用第三人称短句；总长不超过 400 字。' },
+          { role: 'user', content: '【已有备忘】\n' + (S.sumText || '（还没有）') + '\n\n【新增对话】\n' + lines }
+        ],
+        max_tokens: 800,
+        temperature: 0.3
+      })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      var c = d && d.choices && d.choices[0] && d.choices[0].message;
+      var t = c && String(c.content || '').trim();
+      if (!t) return;
+      S.sumText = t.slice(0, 1200);
+      S.sumUpto += chunk.length;
+      sumSave();
+      console.log('[记忆] 压缩', chunk.length, '条 → 摘要', S.sumText.length, '字');
+    }).catch(function () {});
   }
 
   /* ══ 画图：直连火山方舟 ══ */
