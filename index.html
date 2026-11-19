@@ -1195,6 +1195,9 @@
     <button class="ghost" id="bRestore">用记忆码恢复</button>
   </div>
 
+  <button class="ghost" id="bImportMap" style="width:100%;margin-top:10px">🔭 导入星图数据（只存手机）</button>
+  <div class="tip">选之前导出的 starmap.json，星图就能用了；数据只在这台手机上，不上传。</div>
+
   <div class="row2">
     <button class="ghost" id="bExport">导出备份</button>
     <button class="ghost" id="bImport">导入备份</button>
@@ -2324,6 +2327,31 @@ You are a coding agent powered by the {{model}} model.
   };
 
   // 导出：JSON（可以再导入回来）
+  $('bImportMap').onclick = function () {
+    var f = document.createElement('input');
+    f.type = 'file';
+    f.accept = 'application/json,.json';
+    f.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0';
+    document.body.appendChild(f);
+    f.onchange = function () {
+      var file = f.files && f.files[0];
+      if (!file) { try { f.remove(); } catch (e) {} return; }
+      var fr = new FileReader();
+      fr.onload = function () {
+        try {
+          var d = JSON.parse(fr.result);
+          if (!d || !d.nodes || !d.nodes.length) throw new Error('这不是星图数据（没有 nodes）');
+          localStorage.setItem('jt_starmap', JSON.stringify(d));
+          alert('导入成功：' + d.nodes.length + ' 个记忆点。星图现在能打开了。');
+        } catch (e) { alert('导入失败：' + (e && e.message)); }
+        try { f.remove(); } catch (e) {}
+      };
+      fr.onerror = function () { alert('读不出这个文件'); try { f.remove(); } catch (e) {} };
+      fr.readAsText(file);
+    };
+    f.click();
+  };
+
   $('bExport').onclick = function () {
     var data = { v: 1, at: new Date().toISOString(), app: 'jingtuanzi', msgs: S.msgs };
     var blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
