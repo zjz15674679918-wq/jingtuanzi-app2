@@ -1048,6 +1048,17 @@
     font-size: 9px; line-height: 17px; text-align: center; cursor: pointer;
   }
   #drawBox #drawGo { flex: 1; }
+  /* 表情格子的删除按钮：手机上必须一直可见、够大好点 */
+  #stkGrid .cell .del {
+    opacity: 1 !important; display: block !important;
+    position: absolute; top: 2px; right: 2px;
+    width: 22px; height: 22px; line-height: 22px; padding: 0;
+    border: 0; border-radius: 50%;
+    background: rgba(38,56,84,.82); color: #fff;
+    font-size: 12px; text-align: center; cursor: pointer;
+    box-shadow: 0 1px 5px rgba(20,40,70,.35);
+  }
+  #stkGrid .cell { position: relative !important; }
 </style>
 </head>
 <body>
@@ -2067,7 +2078,10 @@ You are a coding agent powered by the {{model}} model.
       }).then(function (r) {
         return r.text().then(function (t) { return { ok: r.ok, status: r.status, t: t }; });
       }).then(function (res) {
-        if (!res.ok) throw new Error('看图 ' + res.status + '：' + res.t.slice(0, 160));
+        if (!res.ok) {
+          /* 方舟视觉模型没开通/没权限时，别甩原始报错，让她自然说一句 */
+          return { ok: true, reply: '图好像没传过来…我这边啥也看不到，你直接跟我说拍的是啥吧。', images: [] };
+        }
         var j = JSON.parse(res.t);
         var c = (j.choices && j.choices[0] && j.choices[0].message) || {};
         return { ok: true, reply: String(c.content || '').trim(), images: [] };
