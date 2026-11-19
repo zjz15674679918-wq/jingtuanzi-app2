@@ -1191,8 +1191,20 @@
     <option value="0.1">开着（很淡，0.1）</option>
     <option value="0.2">开着（默认，0.2）</option>
     <option value="0.35">开着（话多一点，0.35）</option>
+    <option value="0.5">开着（比较主动，0.5）</option>
+    <option value="0.7">开着（很主动，0.7）</option>
+    <option value="1">开着（每次探测都开口，1.0）</option>
   </select>
-  <div class="tip">你安静一会儿之后，她会自己找个话头。频率不高，大概十几分钟一次。</div>
+  <div class="tip">概率越高、间隔越短，她越爱主动找你。</div>
+
+  <label>安静多久之后她可以开口</label>
+  <select id="cfgProIdle">
+    <option value="1">1 分钟</option>
+    <option value="3">3 分钟</option>
+    <option value="5">5 分钟</option>
+    <option value="10">10 分钟</option>
+    <option value="20">20 分钟</option>
+  </select>
 
 
   <div class="row2">
@@ -1651,7 +1663,7 @@ You are a coding agent powered by the {{model}} model.
     // 部署在 Netlify 时，语音走同源的 /api/tts（Netlify Function），不用填 Worker 地址。
     // apiBase：接口所在域名。留空 = 同源（Netlify 那种）；
     // 迁到 CloudBase 后静态和函数不同域，要填 CloudBase 的 HTTP 访问服务域名。
-    cfg: { key: '', arkKey: '', apiOn: true, model: 'deepseek-flash', worker: '', name: '', autoVoice: false, proactive: 0.2, apiBase: 'https://unpleasant-deer-d9fzjo2n977d0052-1533880744.ap-shanghai.app.tcloudbase.com' },
+    cfg: { key: '', arkKey: '', apiOn: true, proIdle: 3, model: 'deepseek-flash', worker: '', name: '', autoVoice: false, proactive: 0.2, apiBase: 'https://unpleasant-deer-d9fzjo2n977d0052-1533880744.ap-shanghai.app.tcloudbase.com' },
     msgs: [], sending: false, audio: null, avHer: '', avMe: '', avKind: '', pendingImg: '', pendingImgs: [], quote: null,
     summary: '', qqSummary: '', herStickers: [], myStickers: [], qqStickers: []
   };
@@ -2070,8 +2082,10 @@ You are a coding agent powered by the {{model}} model.
     if (!S.msgs.length) return;                     // 还没聊过，先不搭话
     if (!S.cfg.key && !S.cfg.worker && !S.cfg.apiBase) return;
     var now = Date.now();
-    if (now - S.lastUserAt < PRO_IDLE) return;      // 你还在说，先等着
-    if (now - S.proLast < PRO_COOL) return;         // 冷却中
+    var _idleMs = (Number(S.cfg.proIdle) || 3) * 60 * 1000;
+    if (now - S.lastUserAt < _idleMs) return;       // 你还在说，先等着
+    var _coolMs = Math.max(60 * 1000, _idleMs * 2);  // 两次主动之间至少隔 2 倍静默时长
+    if (now - S.proLast < _coolMs) return;          // 冷却中
     if (Math.random() >= p) return;                 // 这一次没摇中
     proFire();
   }
@@ -2292,6 +2306,7 @@ You are a coding agent powered by the {{model}} model.
     $('cfgName').value = S.cfg.name || '';
     $('cfgVoice').value = S.cfg.autoVoice ? '1' : '';
     $('cfgPro').value = String(S.cfg.proactive == null ? 0.2 : S.cfg.proactive);
+    if ($('cfgProIdle')) $('cfgProIdle').value = String(S.cfg.proIdle || 3);
     $('cfgCode').value = deviceToken();
     $('setMsg').textContent = '';
     $('set').classList.remove('hidden');
@@ -2415,6 +2430,7 @@ You are a coding agent powered by the {{model}} model.
     S.cfg.name = ($('cfgName').value || '').trim().slice(0, 12);
     S.cfg.autoVoice = ($('cfgVoice').value || '').trim() === '1';
     S.cfg.proactive = Math.max(0, Math.min(1, parseFloat($('cfgPro').value) || 0));
+    if ($('cfgProIdle')) S.cfg.proIdle = Number($('cfgProIdle').value) || 3;
     saveCfg(); closeSet(); paintAvatars(); renderAll();
     if (S.cfg.worker) syncPull().then(function () { syncPush(); });
   };
