@@ -115,6 +115,12 @@
   }
 
   function loadDataByScript(done) {
+    /* 数据只存这台手机：优先用主 App「导入星图数据」写进来的那份 */
+    try {
+      var _localRaw = localStorage.getItem('jt_starmap');
+      if (_localRaw && start(JSON.parse(_localRaw))) return;
+    } catch (e) { /* 解析失败就当没有 */ }
+
     if (start(window.__STARMAP_DATA__)) return;
     var s = document.createElement('script');
     s.src = DATA_SCRIPT + '?v=' + Date.now();
