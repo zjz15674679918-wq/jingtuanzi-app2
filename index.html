@@ -1938,6 +1938,7 @@ You are a coding agent powered by the {{model}} model.
       }
     });
     bindAllImages();
+    bindHerAvatarAt();
     // 所有 data-big 的图（用户发的 / 她生成的）→ 点一下全屏放大
     Array.prototype.forEach.call(box.querySelectorAll('img[data-big]'), function (im) {
       if (im.__big) return;
@@ -3346,15 +3347,42 @@ You are a coding agent powered by the {{model}} model.
   }
   function closeDraw() { $('drawBox').classList.add('hidden'); }
 
-  /* @她：往输入框塞一个 @鲸团子，并告诉她这是直接叫她 */
-  $('bAt').onclick = function () {
+  /* @她：按钮 / 长按她的头像 都能插入 */
+  function insertAt() {
     var t = $('txt');
     var at = '@' + (S.herName || '鲸团子') + ' ';
     t.value = (t.value ? t.value + ' ' : '') + at;
     t.style.height = 'auto';
     t.style.height = Math.min(120, t.scrollHeight) + 'px';
     try { t.focus(); } catch (e) {}
-  };
+    try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+  }
+  $('bAt').onclick = insertAt;
+
+  /* 长按她的头像 = @她 */
+  function bindHerAvatarAt() {
+    var box = $('msgs');
+    if (!box) return;
+    Array.prototype.forEach.call(box.querySelectorAll('.m.her .av'), function (av) {
+      if (av.__atBound) return;
+      av.__atBound = true;
+      var timer = null, moved = false;
+      function down() {
+        moved = false;
+        timer = setTimeout(function () {
+          if (moved) return;
+          timer = null;
+          insertAt();
+        }, 520);
+      }
+      function up() { if (timer) { clearTimeout(timer); timer = null; } }
+      av.addEventListener('touchstart', down, { passive: true });
+      av.addEventListener('touchend', up);
+      av.addEventListener('touchcancel', up);
+      av.addEventListener('touchmove', function () { moved = true; up(); }, { passive: true });
+      av.addEventListener('contextmenu', function (e) { e.preventDefault(); insertAt(); });
+    });
+  }
 
   /* ── 启动 ── */
   load();
