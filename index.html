@@ -2048,7 +2048,10 @@ You are a coding agent powered by the {{model}} model.
     var key = (S.cfg.key || '').trim();
     if (!key) return Promise.reject(new Error('还没填 DeepSeek key（设置里填一次就好）'));
 
-    var msgs = [{ role: 'system', content: persona() + '\n\n【对方的名字】' + (S.cfg.name || '对方') }];
+    var sysExtra = '\n\n【发表情的规矩】你有自己的表情包。合适的时候（接梗、撒娇、无语、笑着附和）' +
+      '可以在回复最后单独加一个记号 [[表情]]，它会自动换成你库里的一张表情发出去。' +
+      '\n· 不用每条都发，十条里两三条就好；\n· 只能是 [[表情]]，不要加编号或别的字；\n· 加了记号就别再解释。';
+    var msgs = [{ role: 'system', content: persona() + '\n\n【对方的名字】' + (S.cfg.name || '对方') + sysExtra }];
     S.msgs.filter(function (m) { return !m.sys && m.role !== 'system'; })
          .slice(-30)
          .forEach(function (m) {
@@ -2091,7 +2094,13 @@ You are a coding agent powered by the {{model}} model.
       }
       var d = JSON.parse(res.t);
       var ch = (d.choices && d.choices[0] && d.choices[0].message) || {};
-      return { ok: true, reply: String(ch.content || '').trim(), images: [] };
+      var txt = String(ch.content || '').trim();
+      var imgs = [];
+      if (txt.indexOf('[[表情]]') >= 0) {
+        txt = txt.replace(/\[\[表情\]\]/g, '').trim();
+        imgs = pickSticker();
+      }
+      return { ok: true, reply: txt, images: imgs };
     });
   }
 
@@ -3136,6 +3145,17 @@ You are a coding agent powered by the {{model}} model.
       alert('这个浏览器不支持朗读');
     }
   };
+
+  /* 从她自己的库里挑一张表情 */
+  function pickSticker() {
+    /* 频率 0.2：她说想发表情时，只有 20% 真的发出来 */
+    if (Math.random() >= 0.2) return [];
+    var pool = (S.qqStickers || []).filter(function (x) { return x && x.data; });
+    if (!pool.length) pool = (S.herStickers || []).filter(function (x) { return x && x.data; });
+    if (!pool.length) return [];
+    var pick = pool[Math.floor(Math.random() * pool.length)];
+    return [{ url: pick.data, kind: 'sticker' }];
+  }
 
   /* ══ 画图：直连火山方舟 ══ */
   function arkKey() { return String(S.cfg.arkKey || '').trim(); }
