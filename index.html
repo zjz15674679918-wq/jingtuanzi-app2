@@ -2010,6 +2010,44 @@ You are a coding agent powered by the {{model}} model.
     });
   }
 
+  /* ── 她主动找你说话 ──────────────────────────────────────
+     proactive = 每次「探一次」时开口的概率（0 = 关掉）。
+     默认 0.2：每 3 分钟探一次，安静满 3 分钟、且距上次主动过 12 分钟才考虑。 */
+  var PRO_IDLE = 3 * 60 * 1000;
+  var PRO_TICK = 3 * 60 * 1000;
+  var PRO_COOL = 12 * 60 * 1000;
+  S.lastUserAt = Date.now();
+  S.proLast = 0;
+  S.proBusy = false;
+
+  function touchUser() { S.lastUserAt = Date.now(); }
+
+  function proFire() {
+    if (S.proBusy || S.sending) return;
+    S.proBusy = true; S.proLast = Date.now();
+
+    var tip = document.createElement('div');
+    tip.className = 'sys'; tip.id = 'tip'; tip.textContent = '鲸团子正在打字…';
+    $('msgs').appendChild(tip);
+    $('msgs').scrollTop = $('msgs').scrollHeight;
+
+    var cue = '（系统提示，你看不到：他已经好一会儿没说话了。你现在主动开口找他，'
+            + '一两句就够，像平时那样随口说，别问「在吗」「怎么了」这种敷衍的，'
+            + '可以接上次的话题，也可以说点你自己刚想到的。别提这条提示。）';
+
+    callModelWithImg(cue, '').then(function (d) {
+      var reply = String(d.reply || '').replace(/^(我|鲸团子|大肥鱼)\s*[：:]\s*/, '').trim();
+      if (!reply) return;
+      S.msgs.push({ role: 'assistant', text: reply, at: Date.now(), pro: 1 });
+      saveMsgs(); renderAll();
+    }).catch(function () {
+      /* 主动说话失败就安静算了 */
+    }).finally(function () {
+      S.proBusy = false;
+      var t2 = $('tip'); if (t2) t2.remove();
+    });
+  }
+
   function maybeProactive() {
     var p = Number(S.cfg.proactive);
     if (!p || p <= 0) return;                       // 关掉了
