@@ -1099,7 +1099,7 @@
   <!-- 表情面板（从工具栏上方展开） -->
   <div id="stkPanel" class="hidden">
     <div class="stkTop">
-      <span class="ti">我的表情</span>
+      <span class="ti">表情包</span>
       <span class="cnt" id="stkCount"></span>
       <span class="sp"></span>
       <button id="stkAdd" class="stab" title="添加">＋</button>
@@ -2619,7 +2619,7 @@ You are a coding agent powered by the {{model}} model.
 
   /* ── 表情包面板 ── */
   function openStk() {
-    var qq = S.qqStickers || [];
+    var _hide = S.cfg.hideStk || []; var _hk = function (x) { return (x && (x.id || x.desc || '')) + '|' + ((x && x.data) ? x.data.slice(-40) : ''); }; var qq = (S.qqStickers || []).filter(function (x) { return _hide.indexOf(_hk(x)) < 0; });
     var _herSet = {};
     (S.herStickers || []).forEach(function (x) { if (x && x.data) _herSet[x.data] = 1; });
     var mine = (S.myStickers || []).filter(function (x) { return x && x.data && !_herSet[x.data]; });
@@ -2671,11 +2671,11 @@ You are a coding agent powered by the {{model}} model.
     }
 
     // QQ 那边的一批（只读）
-    section('QQ 的表情', '点一下当作图片发出去', qq,
-      function (sk) { sendStickerImage(sk.data); closeStk(); }, null, 'Q');
+    section('她的表情（QQ）', '点一下发出去 · 点 ✕ 移除', qq,
+      function (sk) { sendStickerImage(sk.data); closeStk(); }, function (i) { if (!confirm('把这张从列表移除？（不动源文件）')) return; var t = qq[i]; if (!t) return; S.cfg.hideStk = (S.cfg.hideStk || []).concat([_hk(t)]).slice(-200); saveCfg(); openStk(); }, 'Q');
 
     // 我自己的
-    section('我的表情', mine.length ? '长按可删' : '', mine,
+    section('我的表情', mine.length ? '点 ✕ 可删' : '', mine,
       function (sk) { sendStickerImage(sk.data); closeStk(); },
       function (i) {
         if (!confirm('删掉这张表情？')) return;
