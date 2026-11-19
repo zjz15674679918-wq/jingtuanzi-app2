@@ -5,7 +5,7 @@
    · 聊天记录 / API / 数据 → 永不缓存（走网络，SW 直接放过）
    ★ 上一版把 bg.jpg 漏在预缓存之外，只能靠「第一次成功加载后顺手存」，
      弱网第一次就没存上 → 之后永远白背景。这里补上了。 */
-const VERSION = 'jt-v4-20261119a';
+const VERSION = 'jt-v4-20261119b';
 const IMG_CACHE = 'jt-img-v2';   // 图片单独一个 cache：换版本不删，避免重下
 
 const SHELL = [
