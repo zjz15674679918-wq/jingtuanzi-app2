@@ -2045,7 +2045,36 @@ You are a coding agent powered by the {{model}} model.
          });
 
     var said = String(userText || '').trim();
-    if (img) said = (said ? said + '\n' : '') + '（我发了张图片，但这一版还看不了图）';
+
+    /* 有图 + 有方舟 key → 走方舟视觉模型，让她真的看得见 */
+    var ark = String(S.cfg.arkKey || '').trim();
+    if (img && ark) {
+      var vmsgs = msgs.slice();
+      vmsgs.push({
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: img } },
+          { type: 'text', text: said || '看看这张图，跟我说说。' }
+        ]
+      });
+      return fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + ark },
+        body: JSON.stringify({
+          model: S.cfg.arkVisionModel || 'doubao-1-5-vision-pro-32k-250115',
+          messages: vmsgs, temperature: 1.1, max_tokens: 2000
+        })
+      }).then(function (r) {
+        return r.text().then(function (t) { return { ok: r.ok, status: r.status, t: t }; });
+      }).then(function (res) {
+        if (!res.ok) throw new Error('看图 ' + res.status + '：' + res.t.slice(0, 160));
+        var j = JSON.parse(res.t);
+        var c = (j.choices && j.choices[0] && j.choices[0].message) || {};
+        return { ok: true, reply: String(c.content || '').trim(), images: [] };
+      });
+    }
+
+    if (img) said = (said ? said + '\n' : '') + '（我发了张图片；要她看图，得在设置里填火山方舟 key）';
     msgs.push({ role: 'user', content: said || '（没说话）' });
 
     return fetch('https://api.deepseek.com/chat/completions', {
@@ -2647,7 +2676,13 @@ You are a coding agent powered by the {{model}} model.
       function (sk) { sendStickerImage(sk.data); closeStk(); },
       function (i) {
         if (!confirm('删掉这张表情？')) return;
-        S.myStickers.splice(i, 1);
+        var _t = mine[i];
+        var _k = -1;
+        for (var _j = 0; _j < S.myStickers.length; _j++) {
+          if (_t && S.myStickers[_j] && S.myStickers[_j].data === _t.data) { _k = _j; break; }
+        }
+        if (_k < 0) { alert("这张已经不在了，关掉面板重开一次"); return; }
+        S.myStickers.splice(_k, 1);
         try { localStorage.setItem('jt_stk_mine', JSON.stringify(S.myStickers)); } catch (e) {}
         openStk();
       }, null);
